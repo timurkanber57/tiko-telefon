@@ -1,0 +1,11 @@
+{
+  "name": "tiko-telefon-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "TİKO telefon uygulaması: Fiyat Gör, Satış, Stok sayım. Çevrimdışı çalışır, bulut hazır olunca aynı veri arayüzüyle bağlanır.",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "start": "node tools/sunucu.js"
+  }
+}
