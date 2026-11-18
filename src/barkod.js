@@ -12,7 +12,7 @@ export function bip(tamam = true) {
 export async function kameraBaslat(videoEl, onBarkod, bekleme = 1800) {
   const akim = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
   videoEl.muted = true; videoEl.setAttribute('playsinline', ''); videoEl.srcObject = akim; await videoEl.play();
-  const det = yerlesikDestek() ? new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'code_128', 'code_39', 'qr_code'] }) : null;
+  const det = yerlesikDestek() ? new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'code_128'] }) : null;
   const tuval = document.createElement('canvas'); const bag = tuval.getContext('2d', { willReadFrequently: true });
   let dur = false; let son = ''; let sonZaman = 0; let aday = ''; let adayZaman = 0;
   const bildir = (k) => { const t = Date.now(); if (k !== son || t - sonZaman > bekleme) { son = k; sonZaman = t; navigator.vibrate?.(40); onBarkod(k); } };

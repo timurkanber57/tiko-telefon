@@ -38,3 +38,19 @@ test('sayım excel satırları ve xlsx dosyası', () => {
   const r = sayimExcelSatirlari(k); assert.deepEqual(r[0], ['Barkod', 'Ürün Adı', 'Adet', 'Alış Fiyatı', 'Satış Fiyatı']); assert.deepEqual(r[1], ['8690000000017', 'Kalem & "Pilot"', 3, 5.5, 12.5]); assert.deepEqual(r[2], ['1', '', 1, '', '']);
   const b = xlsxYaz(r); assert.equal(b[0], 0x50); assert.equal(b[1], 0x4b); fs.writeFileSync('/tmp/telefon-test.xlsx', b);
 });
+
+test('satır iskonto: yüzde / ₺ düş / yeni fiyat; toplam iskonto: yüzde / ₺ / hedef', () => {
+  const sat = (x) => ({ miktar: 2, birimFiyat: 50, ...x });
+  assert.equal(sepetHesapla([sat({ iskonto: '10' })]).toplam, 90);
+  assert.equal(sepetHesapla([sat({ iskTutar: 15 })]).toplam, 85);
+  assert.equal(sepetHesapla([sat({ netFiyat: 40 })]).toplam, 80);
+  assert.equal(sepetHesapla([sat({ netFiyat: 40, miktar: 3 })]).toplam, 120, 'yeni fiyat adetle çarpılır');
+  const a = [sat({ iskonto: '10' }), { miktar: 1, birimFiyat: 10 }]; // net 100
+  assert.equal(sepetHesapla(a, { tip: 'yuzde', deger: 10 }).toplam, 90);
+  assert.equal(sepetHesapla(a, { tip: 'tutar', deger: 7 }).toplam, 93);
+  assert.equal(sepetHesapla(a, { tip: 'hedef', deger: 95 }).toplam, 95);
+  assert.equal(sepetHesapla(a, { tip: 'hedef', deger: 500 }).toplam, 100, 'hedef toplamdan büyükse artış yok');
+  assert.equal(sepetHesapla(a, 500).toplam, 0, 'iskonto toplamı aşamaz');
+  const k = satisKaydiOlustur({ cihazId: 'c', sirket: 'eraslan', satirlar: a, odemeler: [{ tip: 'nakit', tutar: 95 }], sepetIsk: { tip: 'hedef', deger: 95 } });
+  assert.equal(k.toplam, 95); assert.equal(k.sepetIsk, 5); assert.equal(k.satirlar[0].iskYuzde, 10);
+});

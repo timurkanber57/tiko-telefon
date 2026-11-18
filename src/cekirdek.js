@@ -38,19 +38,29 @@ export function iskontoYuzde(metin) {
   return yuvarla((1 - kalan) * 100);
 }
 
-// Sepet: satirlar [{miktar, birimFiyat, iskonto:'10+5'|number}] → {satirlar:[{tutar,iskYuzde}], ara, indirim, toplam, adet}
+// Satır iskontosu 3 yoldan biri: iskonto ("10", "10+5" yüzde) | iskTutar (satır toplamından ₺ düş) | netFiyat (yeni birim fiyat)
+// Sepet iskontosu: sayı (₺) ya da {tip:'yuzde'|'tutar'|'hedef', deger}  ('hedef': toplam şu tutar olsun)
+export function satirTutar(s) {
+  const m = Number(s.miktar) || 0; const f = Number(s.birimFiyat) || 0; const brut = yuvarla(m * f);
+  if (s.netFiyat != null && s.netFiyat !== '' && Number(s.netFiyat) >= 0) return { brut, tutar: yuvarla(m * Number(s.netFiyat)) };
+  if (s.iskTutar != null && s.iskTutar !== '' && Number(s.iskTutar) > 0) return { brut, tutar: yuvarla(Math.max(brut - Number(s.iskTutar), 0)) };
+  const y = iskontoYuzde(s.iskonto); return { brut, tutar: yuvarla(brut * (1 - (Number.isNaN(y) ? 0 : y) / 100)) };
+}
 export function sepetHesapla(satirlar, sepetIsk = 0) {
   let ara = 0; let net = 0; let adet = 0;
   const cikti = (satirlar || []).map((s) => {
-    const m = Number(s.miktar) || 0; const f = Number(s.birimFiyat) || 0;
-    const y = iskontoYuzde(s.iskonto); const iy = Number.isNaN(y) ? 0 : y;
-    const brut = yuvarla(m * f); const tutar = yuvarla(brut * (1 - iy / 100));
-    ara += brut; net += tutar; adet += m;
-    return { ...s, iskYuzde: iy, brut, tutar };
+    const { brut, tutar } = satirTutar(s); ara += brut; net += tutar; adet += Number(s.miktar) || 0;
+    return { ...s, iskYuzde: brut > 0 ? yuvarla((1 - tutar / brut) * 100) : 0, brut, tutar };
   });
-  const sepetTutar = Math.min(Math.max(Number(sepetIsk) || 0, 0), net);
+  net = yuvarla(net);
+  let sepetTutar = 0; const k = sepetIsk;
+  if (k && typeof k === 'object') {
+    const d = Number(k.deger) || 0;
+    sepetTutar = k.tip === 'yuzde' ? net * Math.min(Math.max(d, 0), 100) / 100 : k.tip === 'hedef' ? net - Math.min(Math.max(d, 0), net) : d;
+  } else sepetTutar = Number(k) || 0;
+  sepetTutar = yuvarla(Math.min(Math.max(sepetTutar, 0), net));
   const toplam = yuvarla(net - sepetTutar);
-  return { satirlar: cikti, ara: yuvarla(ara), indirim: yuvarla(ara - toplam), toplam, adet };
+  return { satirlar: cikti, ara: yuvarla(ara), net, sepetIskTutar: sepetTutar, indirim: yuvarla(ara - toplam), toplam, adet };
 }
 
 // Ödemeler toplamı sepet toplamını karşılamalı (nakitte para üstü ayrı hesaplanır)
@@ -72,8 +82,8 @@ export function satisKaydiOlustur({ cihazId, sirket, satirlar, odemeler, sepetIs
   if (!o.tamam) throw new Error('Ödeme tutarı eksik (kalan ₺' + para(o.kalan) + ')');
   return {
     tur: 'satis', id: yeniId(), cihazId, sirket, kasiyer, olusturuldu: new Date().toISOString(), durum: 'bekliyor',
-    satirlar: h.satirlar.map((s) => ({ urunId: s.urunId || null, barkod: s.barkod || '', ad: s.ad, miktar: s.miktar, birimFiyat: s.birimFiyat, iskonto: s.iskonto || '', iskYuzde: s.iskYuzde, tutar: s.tutar })),
-    sepetIsk: yuvarla(Number(sepetIsk) || 0), ara: h.ara, toplam: h.toplam,
+    satirlar: h.satirlar.map((s) => ({ urunId: s.urunId || null, barkod: s.barkod || '', ad: s.ad, miktar: s.miktar, birimFiyat: s.birimFiyat, iskonto: s.iskonto || '', iskYuzde: s.iskYuzde, brut: s.brut, tutar: s.tutar })),
+    sepetIsk: h.sepetIskTutar, ara: h.ara, toplam: h.toplam,
     odemeler: (odemeler || []).filter((x) => Number(x.tutar) > 0).map((x) => ({ tip: x.tip, tutar: yuvarla(x.tutar) })), paraUstu: o.paraUstu,
   };
 }
